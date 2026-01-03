@@ -6,32 +6,97 @@ import Badge from '@/components/shared/Badge'
 import Avatar from '@/components/shared/Avatar'
 import QRCodeModal from '@/components/modals/QRCodeModal'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/AuthContext'
 
 const StudentsPage = () => {
+  const { profile } = useAuth()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState(null)
+  const [teacherClass, setTeacherClass] = useState(null)
 
   useEffect(() => {
-    fetchStudents()
-  }, [])
+    fetchTeacherClass()
+  }, [profile])
 
-  const fetchStudents = async () => {
+  const fetchTeacherClass = async () => {
+    if (!profile?.id) return
+
+    try {
+      // Get teacher's assigned class
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', profile.id)
+        .single()
+
+      if (classError) {
+        console.log('No class assigned to teacher')
+        setTeacherClass(null)
+      } else {
+        setTeacherClass(classData)
+      }
+      
+      fetchStudents(classData?.id)
+    } catch (error) {
+      console.error('Error:', error)
+      fetchStudents(null)
+    }
+  }
+
+  const fetchStudents = async (classId) => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      
+      // Only fetch students from teacher's class
+      if (!classId) {
+        toast.warning('Anda belum diassign ke mana-mana kelas')
+        setStudents([])
+        setLoading(false)
+        return
+      }
+
+      // Fetch students from teacher's class only
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          class:classes (name),
-          parent:profiles!students_parent_id_fkey (full_name)
-        `)
+        .select('*')
+        .eq('class_id', classId)
         .eq('is_active', true)
         .order('full_name')
 
-      if (error) throw error
-      setStudents(data || [])
+      if (studentsError) throw studentsError
+
+      // Fetch class info
+      const { data: classInfo } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('id', classId)
+        .single()
+
+      // Fetch parent info separately
+      const parentIds = [...new Set(studentsData.map(s => s.parent_id).filter(Boolean))]
+      const { data: parents } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', parentIds)
+
+      // Create parent map
+      const parentMap = {}
+      if (parents) {
+        parents.forEach(p => {
+          parentMap[p.id] = p
+        })
+      }
+
+      // Enrich students with class and parent data
+      const enrichedStudents = studentsData.map(student => ({
+        ...student,
+        class: classInfo,
+        parent: student.parent_id ? parentMap[student.parent_id] : null
+      }))
+
+      setStudents(enrichedStudents)
     } catch (error) {
       console.error('Error:', error)
       toast.error('Gagal memuatkan data murid')
@@ -51,7 +116,9 @@ const StudentsPage = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Senarai Murid</h1>
-        <p className="text-gray-600 mt-1">Paparan murid aktif</p>
+        <p className="text-gray-600 mt-1">
+          {teacherClass ? `Kelas: ${teacherClass.name}` : 'Paparan murid aktif'}
+        </p>
       </div>
 
       {/* Search */}

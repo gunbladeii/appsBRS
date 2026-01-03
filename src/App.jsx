@@ -8,6 +8,7 @@ import LoginPage from './pages/Auth/LoginPage'
 
 // Layouts
 import DashboardLayout from './components/layouts/DashboardLayout'
+import DashboardRedirect from './components/shared/DashboardRedirect'
 
 // Admin Pages
 import AdminDashboard from './pages/Admin/AdminDashboard'
@@ -77,8 +78,8 @@ function App() {
               <Route path="parent/attendance" element={<AttendanceHistoryPage />} />
               <Route path="parent/notifications" element={<NotificationsPage />} />
               
-              {/* Default Dashboard Route */}
-              <Route path="dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+              {/* Default Dashboard Route - Redirect based on role */}
+              <Route path="dashboard" element={<DashboardRedirect />} />
             </Route>
             
             {/* Default redirect */}

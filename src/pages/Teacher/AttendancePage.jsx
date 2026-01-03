@@ -6,8 +6,10 @@ import Badge from '@/components/shared/Badge'
 import Avatar from '@/components/shared/Avatar'
 import { formatDate, formatTime } from '@/utils/helpers'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/AuthContext'
 
 const AttendancePage = () => {
+  const { profile } = useAuth()
   const [attendanceLogs, setAttendanceLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -16,16 +18,48 @@ const AttendancePage = () => {
 
   useEffect(() => {
     fetchAttendance()
-  }, [dateFilter, statusFilter])
+  }, [dateFilter, statusFilter, profile])
 
   const fetchAttendance = async () => {
+    if (!profile?.id) return
+
     try {
       setLoading(true)
       
-      // Fetch attendance logs
+      // Get teacher's assigned class
+      const { data: teacherClass } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', profile.id)
+        .single()
+
+      if (!teacherClass) {
+        toast.warning('Anda belum diassign ke mana-mana kelas')
+        setAttendanceLogs([])
+        setLoading(false)
+        return
+      }
+
+      // Get students from teacher's class
+      const { data: classStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('class_id', teacherClass.id)
+        .eq('is_active', true)
+
+      const studentIds = classStudents?.map(s => s.id) || []
+
+      if (studentIds.length === 0) {
+        setAttendanceLogs([])
+        setLoading(false)
+        return
+      }
+
+      // Fetch attendance logs for teacher's class students only
       let query = supabase
         .from('attendance_logs')
         .select('*')
+        .in('student_id', studentIds)
         .order('scan_time', { ascending: false })
         .limit(100)
 
@@ -40,8 +74,7 @@ const AttendancePage = () => {
       const { data: logs, error: logsError } = await query
       if (logsError) throw logsError
 
-      // Fetch students separately
-      const studentIds = [...new Set(logs.map(log => log.student_id))]
+      // Fetch students info
       const { data: students, error: studentsError } = await supabase
         .from('students')
         .select('id, full_name, my_kid, class_id')
@@ -49,26 +82,12 @@ const AttendancePage = () => {
       
       if (studentsError) throw studentsError
 
-      // Fetch classes separately
-      const classIds = [...new Set(students.map(s => s.class_id).filter(Boolean))]
-      const { data: classes, error: classesError } = await supabase
-        .from('classes')
-        .select('id, name')
-        .in('id', classIds)
-      
-      if (classesError) throw classesError
-
-      // Create lookups
-      const classMap = {}
-      classes.forEach(c => {
-        classMap[c.id] = c
-      })
-
+      // Create student map with class info
       const studentMap = {}
       students.forEach(s => {
         studentMap[s.id] = {
           ...s,
-          class: s.class_id ? classMap[s.class_id] : null
+          class: teacherClass
         }
       })
 

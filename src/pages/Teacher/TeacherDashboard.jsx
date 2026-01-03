@@ -26,44 +26,102 @@ const TeacherDashboard = () => {
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id
 
-      // Get total students
-      const { count: totalStudents } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
+      // Get teacher's assigned class
+      const { data: teacherClass } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', userId)
+        .single()
 
-      // Get today's attendance
-      const today = new Date().toISOString().split('T')[0]
-      const { data: todayAttendance } = await supabase
-        .from('attendance_logs')
-        .select('*')
-        .eq('date', today)
+      let totalStudents = 0
+      let presentToday = 0
+      let scannedByMe = 0
 
-      const presentToday = todayAttendance?.filter(a => a.status === 'PRESENT').length || 0
-      const scannedByMe = todayAttendance?.filter(a => a.recorded_by === userId).length || 0
+      if (teacherClass) {
+        // Get total students in teacher's class only
+        const { count } = await supabase
+          .from('students')
+          .select('*', { count: 'exact', head: true })
+          .eq('class_id', teacherClass.id)
+          .eq('is_active', true)
+        
+        totalStudents = count || 0
+
+        // Get today's attendance for teacher's class students only
+        const today = new Date().toISOString().split('T')[0]
+        
+        // Get student IDs from teacher's class
+        const { data: classStudents } = await supabase
+          .from('students')
+          .select('id')
+          .eq('class_id', teacherClass.id)
+          .eq('is_active', true)
+        
+        const studentIds = classStudents?.map(s => s.id) || []
+
+        if (studentIds.length > 0) {
+          const { data: todayAttendance } = await supabase
+            .from('attendance_logs')
+            .select('*')
+            .eq('date', today)
+            .in('student_id', studentIds)
+
+          presentToday = todayAttendance?.filter(a => a.status === 'PRESENT').length || 0
+          scannedByMe = todayAttendance?.filter(a => a.recorded_by === userId).length || 0
+        }
+      }
 
       setStats({
-        totalStudents: totalStudents || 0,
+        totalStudents,
         presentToday,
         scannedByMe
       })
 
-      // Get recent scans by this teacher
-      const { data: recent } = await supabase
+      // Get recent scans by this teacher (no JOIN)
+      const { data: recentLogs } = await supabase
         .from('attendance_logs')
-        .select(`
-          *,
-          student:students (
-            full_name,
-            mykid,
-            class:classes (name)
-          )
-        `)
+        .select('*')
         .eq('recorded_by', userId)
         .order('scan_time', { ascending: false })
         .limit(5)
 
-      setRecentScans(recent || [])
+      if (recentLogs && recentLogs.length > 0) {
+        // Fetch students separately
+        const studentIds = [...new Set(recentLogs.map(log => log.student_id))]
+        const { data: students } = await supabase
+          .from('students')
+          .select('id, full_name, my_kid, class_id')
+          .in('id', studentIds)
+
+        // Fetch classes separately
+        const classIds = [...new Set(students?.map(s => s.class_id).filter(Boolean) || [])]
+        const { data: classes } = await supabase
+          .from('classes')
+          .select('id, name')
+          .in('id', classIds)
+
+        // Create maps
+        const classMap = {}
+        classes?.forEach(c => { classMap[c.id] = c })
+
+        const studentMap = {}
+        students?.forEach(s => {
+          studentMap[s.id] = {
+            ...s,
+            class: s.class_id ? classMap[s.class_id] : null
+          }
+        })
+
+        // Enrich logs
+        const enrichedLogs = recentLogs.map(log => ({
+          ...log,
+          student: studentMap[log.student_id] || null
+        }))
+
+        setRecentScans(enrichedLogs)
+      } else {
+        setRecentScans([])
+      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -171,7 +229,7 @@ const TeacherDashboard = () => {
                       {scan.student?.full_name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {scan.student?.class?.name} • {scan.student?.mykid}
+                      {scan.student?.class?.name} • {scan.student?.my_kid}
                     </p>
                   </div>
                 </div>

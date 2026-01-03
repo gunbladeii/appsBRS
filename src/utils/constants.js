@@ -52,6 +52,10 @@ export const MOOD_OPTIONS = [
 
 // Routes berdasarkan role
 export const ROLE_ROUTES = {
+  ADMIN: '/admin/dashboard',
+  TEACHER: '/teacher/dashboard',
+  PARENT: '/parent/dashboard',
+  // Lowercase fallback for compatibility
   admin: '/admin/dashboard',
   teacher: '/teacher/dashboard',
   parent: '/parent/dashboard'
