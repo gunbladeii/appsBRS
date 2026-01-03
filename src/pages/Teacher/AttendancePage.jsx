@@ -83,12 +83,13 @@ const AttendancePage = () => {
               Tarikh
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="input pl-10 w-full"
+                className="input pl-10 pr-3 w-full"
+                style={{ colorScheme: 'light' }}
               />
             </div>
           </div>
