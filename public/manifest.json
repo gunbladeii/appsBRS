@@ -1,0 +1,27 @@
+{
+  "name": "MyKehadiranBRS",
+  "short_name": "MyKehadiranBRS",
+  "description": "Sistem Kehadiran QR Code untuk Murid Berkeperluan Khas - SK Lelaki Jalan Batu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo-sklb.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-sklb.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "ms-MY",
+  "dir": "ltr"
+}
