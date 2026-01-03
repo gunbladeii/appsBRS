@@ -21,17 +21,11 @@ const AttendancePage = () => {
   const fetchAttendance = async () => {
     try {
       setLoading(true)
+      
+      // Fetch attendance logs
       let query = supabase
         .from('attendance_logs')
-        .select(`
-          *,
-          student:students (
-            id,
-            full_name,
-            my_kid,
-            class:classes (name)
-          )
-        `)
+        .select('*')
         .order('scan_time', { ascending: false })
         .limit(100)
 
@@ -43,10 +37,48 @@ const AttendancePage = () => {
         query = query.eq('status', statusFilter)
       }
 
-      const { data, error } = await query
+      const { data: logs, error: logsError } = await query
+      if (logsError) throw logsError
 
-      if (error) throw error
-      setAttendanceLogs(data || [])
+      // Fetch students separately
+      const studentIds = [...new Set(logs.map(log => log.student_id))]
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select('id, full_name, my_kid, class_id')
+        .in('id', studentIds)
+      
+      if (studentsError) throw studentsError
+
+      // Fetch classes separately
+      const classIds = [...new Set(students.map(s => s.class_id).filter(Boolean))]
+      const { data: classes, error: classesError } = await supabase
+        .from('classes')
+        .select('id, name')
+        .in('id', classIds)
+      
+      if (classesError) throw classesError
+
+      // Create lookups
+      const classMap = {}
+      classes.forEach(c => {
+        classMap[c.id] = c
+      })
+
+      const studentMap = {}
+      students.forEach(s => {
+        studentMap[s.id] = {
+          ...s,
+          class: s.class_id ? classMap[s.class_id] : null
+        }
+      })
+
+      // Enrich logs with student data
+      const enrichedLogs = logs.map(log => ({
+        ...log,
+        student: studentMap[log.student_id] || null
+      }))
+
+      setAttendanceLogs(enrichedLogs)
     } catch (error) {
       console.error('Error:', error)
       toast.error('Gagal memuatkan data kehadiran')
