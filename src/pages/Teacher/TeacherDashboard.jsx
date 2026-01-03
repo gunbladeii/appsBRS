@@ -23,6 +23,11 @@ const TeacherDashboard = () => {
   }, [])
 
   const fetchDashboardData = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id
 
@@ -124,7 +129,9 @@ const TeacherDashboard = () => {
       }
     } catch (error) {
       console.error('Error:', error)
+      toast.error('Gagal memuatkan data')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

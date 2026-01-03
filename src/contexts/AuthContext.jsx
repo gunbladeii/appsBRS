@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
         console.log('Auth event:', event)
         
         if (session?.user) {
+          setUser(session.user)
           await fetchProfile(session.user.id)
         } else {
           setUser(null)
@@ -37,8 +38,18 @@ export const AuthProvider = ({ children }) => {
       }
     )
 
+    // Refresh session every 50 seconds to prevent timeout
+    const refreshInterval = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        await supabase.auth.refreshSession()
+        console.log('🔄 Session refreshed')
+      }
+    }, 50000) // 50 seconds
+
     return () => {
       authListener.subscription.unsubscribe()
+      clearInterval(refreshInterval)
     }
   }, [])
 

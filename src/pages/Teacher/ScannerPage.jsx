@@ -19,6 +19,7 @@ const ScannerPage = () => {
     
     setScanning(true)
     const qrCode = result[0].rawValue
+    console.log('🔍 Scanning QR Code:', qrCode)
 
     try {
       // Find student by QR code (no JOIN to avoid RLS issues)
@@ -28,7 +29,23 @@ const ScannerPage = () => {
         .eq('qr_code_string', qrCode)
         .single()
 
-      if (studentError || !student) {
+      if (studentError) {
+        console.error('❌ Student query error:', studentError)
+        toast.error(`Error: ${studentError.message}`)
+        playErrorSound()
+        setScanResult({
+          success: false,
+          message: 'Database error'
+        })
+        setTimeout(() => {
+          setScanning(false)
+          setScanResult(null)
+        }, 3000)
+        return
+      }
+
+      if (!student) {
+        console.warn('⚠️ Student not found for QR:', qrCode)
         toast.error('QR Code tidak sah atau murid tidak dijumpai')
         playErrorSound()
         setScanResult({
@@ -41,6 +58,8 @@ const ScannerPage = () => {
         }, 3000)
         return
       }
+
+      console.log('✅ Student found:', student.full_name, 'Parent ID:', student.parent_id)
 
       // Fetch class info separately
       let classData = null
@@ -86,6 +105,8 @@ const ScannerPage = () => {
 
       // Record attendance
       const userId = (await supabase.auth.getUser()).data.user?.id
+      console.log('📝 Recording attendance for student:', enrichedStudent.id, 'by:', userId)
+      
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance_logs')
         .insert({
@@ -98,12 +119,20 @@ const ScannerPage = () => {
         .single()
 
       if (attendanceError) {
-        console.error('Attendance error:', attendanceError)
-        toast.error('Gagal merekod kehadiran')
+        console.error('❌ Attendance insert error:', attendanceError)
+        console.error('Error details:', {
+          code: attendanceError.code,
+          message: attendanceError.message,
+          details: attendanceError.details,
+          hint: attendanceError.hint
+        })
+        toast.error(`Gagal merekod: ${attendanceError.message}`)
         playErrorSound()
         setScanning(false)
         return
       }
+
+      console.log('✅ Attendance recorded successfully:', attendance.id)
 
       // Success!
       toast.success(`Kehadiran ${enrichedStudent.full_name} berjaya direkod!`)

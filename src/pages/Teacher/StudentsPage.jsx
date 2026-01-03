@@ -46,6 +46,11 @@ const StudentsPage = () => {
   }
 
   const fetchStudents = async (classId) => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
       setLoading(true)
       
@@ -101,6 +106,7 @@ const StudentsPage = () => {
       console.error('Error:', error)
       toast.error('Gagal memuatkan data murid')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }
