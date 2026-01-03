@@ -8,42 +8,59 @@
 -- STEP 1: DROP ALL EXISTING POLICIES
 -- =============================================
 
--- Drop profiles policies
+-- Drop profiles policies (all variations)
 DROP POLICY IF EXISTS "profiles_select_policy" ON profiles;
 DROP POLICY IF EXISTS "profiles_insert_policy" ON profiles;
 DROP POLICY IF EXISTS "profiles_update_policy" ON profiles;
 DROP POLICY IF EXISTS "profiles_delete_policy" ON profiles;
+DROP POLICY IF EXISTS "profiles_admin_all" ON profiles;
+DROP POLICY IF EXISTS "profiles_read_all" ON profiles;
+DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
 
--- Drop students policies
+-- Drop students policies (all variations)
 DROP POLICY IF EXISTS "students_select_policy" ON students;
 DROP POLICY IF EXISTS "students_insert_policy" ON students;
 DROP POLICY IF EXISTS "students_update_policy" ON students;
 DROP POLICY IF EXISTS "students_delete_policy" ON students;
 DROP POLICY IF EXISTS "students_admin_all" ON students;
 DROP POLICY IF EXISTS "students_teacher_select" ON students;
+DROP POLICY IF EXISTS "students_teacher_read" ON students;
 DROP POLICY IF EXISTS "students_parent_select" ON students;
+DROP POLICY IF EXISTS "students_parent_read" ON students;
 
--- Drop attendance_logs policies
+-- Drop attendance_logs policies (all variations)
 DROP POLICY IF EXISTS "attendance_logs_select_policy" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_insert_policy" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_update_policy" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_delete_policy" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_admin_all" ON attendance_logs;
+DROP POLICY IF EXISTS "attendance_admin_all" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_teacher_insert" ON attendance_logs;
+DROP POLICY IF EXISTS "attendance_teacher_insert" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_teacher_select" ON attendance_logs;
+DROP POLICY IF EXISTS "attendance_logs_teacher_read" ON attendance_logs;
+DROP POLICY IF EXISTS "attendance_teacher_read" ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_logs_parent_select" ON attendance_logs;
+DROP POLICY IF EXISTS "attendance_parent_read" ON attendance_logs;
 
--- Drop classes policies
+-- Drop classes policies (all variations)
 DROP POLICY IF EXISTS "classes_select_policy" ON classes;
 DROP POLICY IF EXISTS "classes_insert_policy" ON classes;
 DROP POLICY IF EXISTS "classes_update_policy" ON classes;
 DROP POLICY IF EXISTS "classes_delete_policy" ON classes;
+DROP POLICY IF EXISTS "classes_admin_all" ON classes;
+DROP POLICY IF EXISTS "classes_read_all" ON classes;
 
--- Drop notifications policies
+-- Drop notifications policies (all variations)
 DROP POLICY IF EXISTS "notifications_select_policy" ON notifications;
 DROP POLICY IF EXISTS "notifications_insert_policy" ON notifications;
 DROP POLICY IF EXISTS "notifications_update_policy" ON notifications;
 DROP POLICY IF EXISTS "notifications_delete_policy" ON notifications;
+DROP POLICY IF EXISTS "notifications_admin_all" ON notifications;
+DROP POLICY IF EXISTS "notifications_teacher_insert" ON notifications;
+DROP POLICY IF EXISTS "notifications_teacher_read" ON notifications;
+DROP POLICY IF EXISTS "notifications_read_own" ON notifications;
+DROP POLICY IF EXISTS "notifications_update_own" ON notifications;
 
 -- =============================================
 -- STEP 2: CREATE NEW SIMPLE POLICIES
@@ -185,9 +202,36 @@ CREATE POLICY "notifications_admin_all" ON notifications
     )
   );
 
+-- Teachers can INSERT notifications (for attendance alerts)
+CREATE POLICY "notifications_teacher_insert" ON notifications
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'TEACHER'
+    )
+  );
+
+-- Teachers can read notifications they created
+CREATE POLICY "notifications_teacher_read" ON notifications
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'TEACHER'
+    )
+  );
+
 -- Users can read their own notifications
 CREATE POLICY "notifications_read_own" ON notifications
   FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Users can update their own notifications (mark as read)
+CREATE POLICY "notifications_update_own" ON notifications
+  FOR UPDATE
   USING (user_id = auth.uid());
 
 -- =============================================

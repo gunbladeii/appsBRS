@@ -7,6 +7,7 @@ import Badge from '@/components/shared/Badge'
 import Avatar from '@/components/shared/Avatar'
 import { Link } from 'react-router-dom'
 import { getGreeting, formatTime } from '@/utils/helpers'
+import { toast } from 'sonner'
 
 const TeacherDashboard = () => {
   const { profile } = useAuth()
