@@ -19,6 +19,7 @@ import ClassesPage from './pages/Admin/ClassesPage'
 import AttendancePage from './pages/Admin/AttendancePage'
 import ReportsPage from './pages/Admin/ReportsPage'
 import SettingsPage from './pages/Admin/SettingsPage'
+import AdminNotificationsPage from './pages/Admin/NotificationsPage'
 
 // Teacher Pages
 import TeacherDashboard from './pages/Teacher/TeacherDashboard'
@@ -26,12 +27,13 @@ import ScannerPage from './pages/Teacher/ScannerPage'
 import TeacherStudentsPage from './pages/Teacher/StudentsPage'
 import TeacherAttendancePage from './pages/Teacher/AttendancePage'
 import TeacherProfilePage from './pages/Teacher/ProfilePage'
+import TeacherNotificationsPage from './pages/Teacher/NotificationsPage'
 
 // Parent Pages
 import ParentDashboard from './pages/Parent/ParentDashboard'
 import ChildrenPage from './pages/Parent/ChildrenPage'
 import AttendanceHistoryPage from './pages/Parent/AttendanceHistoryPage'
-import NotificationsPage from './pages/Parent/NotificationsPage'
+import ParentNotificationsPage from './pages/Parent/NotificationsPage'
 
 // Initialize React Query
 const queryClient = new QueryClient({
@@ -67,6 +69,7 @@ function App() {
               <Route path="admin/attendance" element={<AttendancePage />} />
               <Route path="admin/reports" element={<ReportsPage />} />
               <Route path="admin/settings" element={<SettingsPage />} />
+              <Route path="admin/notifications" element={<AdminNotificationsPage />} />
               
               {/* Teacher Routes */}
               <Route path="teacher/dashboard" element={<TeacherDashboard />} />
@@ -74,12 +77,13 @@ function App() {
               <Route path="teacher/students" element={<TeacherStudentsPage />} />
               <Route path="teacher/attendance" element={<TeacherAttendancePage />} />
               <Route path="teacher/profile" element={<TeacherProfilePage />} />
+              <Route path="teacher/notifications" element={<TeacherNotificationsPage />} />
               
               {/* Parent Routes */}
               <Route path="parent/dashboard" element={<ParentDashboard />} />
               <Route path="parent/children" element={<ChildrenPage />} />
               <Route path="parent/attendance" element={<AttendanceHistoryPage />} />
-              <Route path="parent/notifications" element={<NotificationsPage />} />
+              <Route path="parent/notifications" element={<ParentNotificationsPage />} />
               
               {/* Default Dashboard Route - Redirect based on role */}
               <Route path="dashboard" element={<DashboardRedirect />} />

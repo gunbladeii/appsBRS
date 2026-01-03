@@ -70,6 +70,7 @@ export const ADMIN_NAV_ITEMS = [
   { label: 'Kelas', path: '/admin/classes', icon: 'School' },
   { label: 'Kehadiran', path: '/admin/attendance', icon: 'ClipboardCheck' },
   { label: 'Laporan', path: '/admin/reports', icon: 'FileText' },
+  { label: 'Notifikasi', path: '/admin/notifications', icon: 'Bell' },
   { label: 'Tetapan', path: '/admin/settings', icon: 'Settings' }
 ]
 
@@ -78,6 +79,7 @@ export const TEACHER_NAV_ITEMS = [
   { label: 'Imbasan QR', path: '/teacher/scan', icon: 'QrCode' },
   { label: 'Senarai Murid', path: '/teacher/students', icon: 'Users' },
   { label: 'Kehadiran Hari Ini', path: '/teacher/attendance', icon: 'ClipboardCheck' },
+  { label: 'Notifikasi', path: '/teacher/notifications', icon: 'Bell' },
   { label: 'Profil', path: '/teacher/profile', icon: 'User' }
 ]
 
