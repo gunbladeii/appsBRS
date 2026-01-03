@@ -21,14 +21,10 @@ const ScannerPage = () => {
     const qrCode = result[0].rawValue
 
     try {
-      // Find student by QR code
+      // Find student by QR code (no JOIN to avoid RLS issues)
       const { data: student, error: studentError } = await supabase
         .from('students')
-        .select(`
-          *,
-          class:classes (name),
-          parent:profiles!students_parent_id_fkey (full_name)
-        `)
+        .select('*')
         .eq('qr_code_string', qrCode)
         .single()
 
@@ -46,21 +42,38 @@ const ScannerPage = () => {
         return
       }
 
+      // Fetch class info separately
+      let classData = null
+      if (student.class_id) {
+        const { data: classInfo } = await supabase
+          .from('classes')
+          .select('name')
+          .eq('id', student.class_id)
+          .single()
+        classData = classInfo
+      }
+
+      // Enrich student with class data
+      const enrichedStudent = {
+        ...student,
+        class: classData
+      }
+
       // Check if already scanned today
       const today = new Date().toISOString().split('T')[0]
       const { data: existingAttendance } = await supabase
         .from('attendance_logs')
         .select('*')
-        .eq('student_id', student.id)
+        .eq('student_id', enrichedStudent.id)
         .eq('date', today)
         .single()
 
       if (existingAttendance) {
-        toast.warning(`${student.full_name} sudah direkod hadir hari ini`)
+        toast.warning(`${enrichedStudent.full_name} sudah direkod hadir hari ini`)
         setScanResult({
           success: false,
           message: 'Sudah direkod',
-          student,
+          student: enrichedStudent,
           previousScan: existingAttendance
         })
         playWarningSound()
@@ -76,7 +89,7 @@ const ScannerPage = () => {
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance_logs')
         .insert({
-          student_id: student.id,
+          student_id: enrichedStudent.id,
           recorded_by: userId,
           status: 'PRESENT',
           date: today
@@ -85,6 +98,7 @@ const ScannerPage = () => {
         .single()
 
       if (attendanceError) {
+        console.error('Attendance error:', attendanceError)
         toast.error('Gagal merekod kehadiran')
         playErrorSound()
         setScanning(false)
@@ -92,17 +106,17 @@ const ScannerPage = () => {
       }
 
       // Success!
-      toast.success(`Kehadiran ${student.full_name} berjaya direkod!`)
+      toast.success(`Kehadiran ${enrichedStudent.full_name} berjaya direkod!`)
       playSuccessSound()
       
       setScanResult({
         success: true,
-        student,
+        student: enrichedStudent,
         attendance
       })
       
       setLastScan({
-        student,
+        student: enrichedStudent,
         time: new Date()
       })
 
