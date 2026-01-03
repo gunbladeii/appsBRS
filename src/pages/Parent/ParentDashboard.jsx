@@ -6,6 +6,7 @@ import Card from '@/components/shared/Card'
 import Badge from '@/components/shared/Badge'
 import Avatar from '@/components/shared/Avatar'
 import { getGreeting, formatTime, formatDate } from '@/utils/helpers'
+import { toast } from 'sonner'
 
 const ParentDashboard = () => {
   const { profile } = useAuth()
@@ -18,23 +19,39 @@ const ParentDashboard = () => {
   }, [])
 
   const fetchDashboardData = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id
 
-      // Get children
+      // Get children (no JOIN)
       const { data: childrenData } = await supabase
         .from('students')
-        .select(`
-          *,
-          class:classes (name)
-        `)
+        .select('*')
         .eq('parent_id', userId)
 
-      setChildren(childrenData || [])
-
-      // Get today's attendance for children
-      const today = new Date().toISOString().split('T')[0]
       if (childrenData && childrenData.length > 0) {
+        // Get class info separately
+        const classIds = [...new Set(childrenData.map(c => c.class_id).filter(Boolean))]
+        const { data: classesData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .in('id', classIds)
+
+        const classMap = {}
+        classesData?.forEach(c => { classMap[c.id] = c })
+
+        // Enrich children with class
+        const enrichedChildren = childrenData.map(child => ({
+          ...child,
+          class: child.class_id ? classMap[child.class_id] : null
+        }))
+
+        // Get today's attendance
+        const today = new Date().toISOString().split('T')[0]
         const childIds = childrenData.map(c => c.id)
         
         const { data: attendanceData } = await supabase
@@ -44,29 +61,49 @@ const ParentDashboard = () => {
           .eq('date', today)
 
         // Merge attendance with children
-        const childrenWithAttendance = childrenData.map(child => ({
+        const childrenWithAttendance = enrichedChildren.map(child => ({
           ...child,
           todayAttendance: attendanceData?.find(a => a.student_id === child.id)
         }))
         
         setChildren(childrenWithAttendance)
+      } else {
+        setChildren([])
       }
 
-      // Get recent notifications
+      // Get recent notifications (no JOIN)
       const { data: notifData } = await supabase
         .from('notifications')
-        .select(`
-          *,
-          student:students (full_name)
-        `)
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(5)
 
-      setNotifications(notifData || [])
+      if (notifData && notifData.length > 0) {
+        // Get student names separately
+        const studentIds = [...new Set(notifData.map(n => n.student_id).filter(Boolean))]
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, full_name')
+          .in('id', studentIds)
+
+        const studentMap = {}
+        studentsData?.forEach(s => { studentMap[s.id] = s })
+
+        const enrichedNotifications = notifData.map(notif => ({
+          ...notif,
+          student: notif.student_id ? studentMap[notif.student_id] : null
+        }))
+
+        setNotifications(enrichedNotifications)
+      } else {
+        setNotifications([])
+      }
     } catch (error) {
       console.error('Error:', error)
+      toast.error('Gagal memuatkan data')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

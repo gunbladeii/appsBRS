@@ -38,14 +38,14 @@ export const AuthProvider = ({ children }) => {
       }
     )
 
-    // Refresh session every 50 seconds to prevent timeout
+    // Refresh session every 5 minutes to prevent timeout
     const refreshInterval = setInterval(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         await supabase.auth.refreshSession()
         console.log('🔄 Session refreshed')
       }
-    }, 50000) // 50 seconds
+    }, 5 * 60 * 1000) // 5 minutes
 
     return () => {
       authListener.subscription.unsubscribe()

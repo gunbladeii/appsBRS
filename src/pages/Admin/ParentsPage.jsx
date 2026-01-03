@@ -18,6 +18,11 @@ const ParentsPage = () => {
   }, [])
 
   const fetchParents = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -32,6 +37,7 @@ const ParentsPage = () => {
       console.error('Error fetching parents:', error)
       toast.error('Gagal memuatkan data ibu bapa')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

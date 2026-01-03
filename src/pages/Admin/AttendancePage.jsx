@@ -21,6 +21,11 @@ const AttendancePage = () => {
   }, [dateFilter, statusFilter])
 
   const fetchAttendance = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
       let query = supabase
@@ -68,6 +73,7 @@ const AttendancePage = () => {
       console.error('Error fetching attendance:', error)
       toast.error('Gagal memuatkan data kehadiran')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

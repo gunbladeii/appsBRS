@@ -18,6 +18,11 @@ const TeachersPage = () => {
   }, [])
 
   const fetchTeachers = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -32,6 +37,7 @@ const TeachersPage = () => {
       console.error('Error fetching teachers:', error)
       toast.error('Gagal memuatkan data guru')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

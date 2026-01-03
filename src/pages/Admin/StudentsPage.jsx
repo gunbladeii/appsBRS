@@ -22,22 +22,54 @@ const StudentsPage = () => {
   }, [])
 
   const fetchStudents = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
-      const { data, error } = await supabase
+      // Fetch students without JOIN
+      const { data: studentsData, error } = await supabase
         .from('students')
-        .select(`
-          *,
-          class:classes (name),
-          parent:profiles!students_parent_id_fkey (full_name)
-        `)
+        .select('*')
         .order('full_name')
 
       if (error) throw error
-      setStudents(data || [])
+
+      if (studentsData && studentsData.length > 0) {
+        // Get unique IDs
+        const classIds = [...new Set(studentsData.map(s => s.class_id).filter(Boolean))]
+        const parentIds = [...new Set(studentsData.map(s => s.parent_id).filter(Boolean))]
+
+        // Fetch related data in parallel
+        const [classesData, parentsData] = await Promise.all([
+          supabase.from('classes').select('id, name').in('id', classIds),
+          supabase.from('profiles').select('id, full_name').in('id', parentIds)
+        ])
+
+        // Create maps
+        const classMap = {}
+        classesData.data?.forEach(c => { classMap[c.id] = c })
+
+        const parentMap = {}
+        parentsData.data?.forEach(p => { parentMap[p.id] = p })
+
+        // Enrich students data
+        const enrichedStudents = studentsData.map(student => ({
+          ...student,
+          class: student.class_id ? classMap[student.class_id] : null,
+          parent: student.parent_id ? parentMap[student.parent_id] : null
+        }))
+
+        setStudents(enrichedStudents)
+      } else {
+        setStudents([])
+      }
     } catch (error) {
       console.error('Error:', error)
       toast.error('Gagal memuatkan data murid')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

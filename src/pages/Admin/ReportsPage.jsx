@@ -51,6 +51,11 @@ const ReportsPage = () => {
   }, [dateRange])
 
   const fetchReportData = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
       setLoading(true)
 
@@ -125,6 +130,7 @@ const ReportsPage = () => {
       console.error('Error fetching report data:', error)
       toast.error('Gagal memuatkan data laporan')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

@@ -26,33 +26,69 @@ const ChildrenPage = () => {
   }, [selectedChild])
 
   const fetchChildren = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      
+      // Fetch students without JOIN
+      const { data: studentsData, error } = await supabase
         .from('students')
-        .select(`
-          *,
-          class:classes (name),
-          attendance_logs (
-            id,
-            date,
-            status,
-            scan_time
-          )
-        `)
+        .select('*')
         .eq('parent_id', user?.id)
         .order('full_name')
 
       if (error) throw error
-      const childrenData = data || []
-      setChildren(childrenData)
-      if (childrenData.length > 0) {
-        setSelectedChild(childrenData[0])
+
+      if (studentsData && studentsData.length > 0) {
+        // Get class info separately
+        const classIds = [...new Set(studentsData.map(s => s.class_id).filter(Boolean))]
+        const { data: classesData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .in('id', classIds)
+
+        const classMap = {}
+        classesData?.forEach(c => { classMap[c.id] = c })
+
+        // Get attendance logs separately
+        const studentIds = studentsData.map(s => s.id)
+        const { data: attendanceData } = await supabase
+          .from('attendance_logs')
+          .select('id, student_id, date, status, scan_time')
+          .in('student_id', studentIds)
+
+        // Group attendance by student
+        const attendanceByStudent = {}
+        attendanceData?.forEach(log => {
+          if (!attendanceByStudent[log.student_id]) {
+            attendanceByStudent[log.student_id] = []
+          }
+          attendanceByStudent[log.student_id].push(log)
+        })
+
+        // Enrich children data
+        const enrichedChildren = studentsData.map(student => ({
+          ...student,
+          class: student.class_id ? classMap[student.class_id] : null,
+          attendance_logs: attendanceByStudent[student.id] || []
+        }))
+
+        setChildren(enrichedChildren)
+        if (enrichedChildren.length > 0) {
+          setSelectedChild(enrichedChildren[0])
+        }
+      } else {
+        setChildren([])
       }
     } catch (error) {
       console.error('Error:', error)
       toast.error('Gagal memuatkan data anak')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

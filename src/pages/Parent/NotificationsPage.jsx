@@ -18,6 +18,11 @@ const NotificationsPage = () => {
   }, [user])
 
   const fetchNotifications = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -33,6 +38,7 @@ const NotificationsPage = () => {
       console.error('Error:', error)
       toast.error('Gagal memuatkan notifikasi')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

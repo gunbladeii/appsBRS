@@ -47,20 +47,17 @@ const AttendanceHistoryPage = () => {
   }
 
   const fetchAttendance = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000)
+
     try {
       setLoading(true)
       
       let query = supabase
         .from('attendance_logs')
-        .select(`
-          *,
-          student:students (
-            id,
-            full_name,
-            my_kid,
-            class:classes (name)
-          )
-        `)
+        .select('*')
         .gte('date', dateRange.startDate)
         .lte('date', dateRange.endDate)
         .order('date', { ascending: false })
@@ -78,14 +75,52 @@ const AttendanceHistoryPage = () => {
         query = query.eq('status', statusFilter)
       }
 
-      const { data, error } = await query
+      const { data: logsData, error } = await query
 
       if (error) throw error
-      setAttendanceLogs(data || [])
+
+      if (logsData && logsData.length > 0) {
+        // Get student info separately
+        const studentIds = [...new Set(logsData.map(log => log.student_id))]
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, full_name, my_kid, class_id')
+          .in('id', studentIds)
+
+        // Get class info
+        const classIds = [...new Set(studentsData?.map(s => s.class_id).filter(Boolean) || [])]
+        const { data: classesData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .in('id', classIds)
+
+        // Create maps
+        const classMap = {}
+        classesData?.forEach(c => { classMap[c.id] = c })
+
+        const studentMap = {}
+        studentsData?.forEach(s => {
+          studentMap[s.id] = {
+            ...s,
+            class: s.class_id ? classMap[s.class_id] : null
+          }
+        })
+
+        // Enrich logs
+        const enrichedLogs = logsData.map(log => ({
+          ...log,
+          student: studentMap[log.student_id] || null
+        }))
+
+        setAttendanceLogs(enrichedLogs)
+      } else {
+        setAttendanceLogs([])
+      }
     } catch (error) {
       console.error('Error:', error)
       toast.error('Gagal memuatkan sejarah kehadiran')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }

@@ -7,6 +7,7 @@ import Badge from '@/components/shared/Badge'
 import Avatar from '@/components/shared/Avatar'
 import { formatDate, formatTime, getGreeting } from '@/utils/helpers'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 
 const AdminDashboard = () => {
   const { profile } = useAuth()
@@ -25,6 +26,11 @@ const AdminDashboard = () => {
   }, [])
 
   const fetchDashboardData = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      toast.error('Request timeout - sila refresh page')
+    }, 10000) // 10 second timeout
+
     try {
       // Get total students
       const { count: totalStudents } = await supabase
@@ -52,25 +58,61 @@ const AdminDashboard = () => {
         attendanceRate
       })
 
-      // Get recent attendance with student info
+      // Get recent attendance (NO NESTED JOIN)
       const { data: recent } = await supabase
         .from('attendance_logs')
-        .select(`
-          *,
-          student:students (
-            full_name,
-            mykid,
-            class:classes (name)
-          ),
-          recorder:profiles!attendance_logs_recorded_by_fkey (full_name)
-        `)
+        .select('*')
         .order('scan_time', { ascending: false })
         .limit(10)
 
-      setRecentAttendance(recent || [])
+      if (recent && recent.length > 0) {
+        // Fetch related data separately
+        const studentIds = [...new Set(recent.map(r => r.student_id))]
+        const recorderIds = [...new Set(recent.map(r => r.recorded_by).filter(Boolean))]
+
+        const [studentsData, recordersData] = await Promise.all([
+          supabase.from('students').select('id, full_name, my_kid, class_id').in('id', studentIds),
+          supabase.from('profiles').select('id, full_name').in('id', recorderIds)
+        ])
+
+        // Get class info
+        const classIds = [...new Set(studentsData.data?.map(s => s.class_id).filter(Boolean) || [])]
+        const { data: classesData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .in('id', classIds)
+
+        // Create maps
+        const classMap = {}
+        classesData?.forEach(c => { classMap[c.id] = c })
+
+        const studentMap = {}
+        studentsData.data?.forEach(s => {
+          studentMap[s.id] = {
+            ...s,
+            class: s.class_id ? classMap[s.class_id] : null
+          }
+        })
+
+        const recorderMap = {}
+        recordersData.data?.forEach(r => { recorderMap[r.id] = r })
+
+        // Enrich data
+        const enrichedRecent = recent.map(log => ({
+          ...log,
+          student: studentMap[log.student_id] || null,
+          recorder: recorderMap[log.recorded_by] || null
+        }))
+
+        setRecentAttendance(enrichedRecent)
+      } else {
+        setRecentAttendance([])
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
+      toast.error('Gagal memuatkan data')
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }
